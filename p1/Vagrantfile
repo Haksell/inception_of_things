@@ -1,53 +1,35 @@
-# Vagrant.configure("2") do |config|
-#     config.vm.box = "debian/bullseye64"
+PROVIDER = "virtualbox"
 
-#     config.vm.provider "virtualbox" do |vb|
-#         vb.memory = 1024
-#         vb.cpus = 1
-#     end
+SERVER_IP = "192.168.56.110"
+SERVER_NAME = "axbrisseS"
 
-#     config.vm.provision "shell", inline: <<-SHELL
-#         export DEBIAN_FRONTEND=noninteractive
+AGENT_IP = "192.168.56.111"
+AGENT_NAME = "axbrisseSW"
 
-#         apt-get update
-#         apt-get install -y curl git zsh
+Vagrant.configure("2") do |config|
+  config.vm.box = "generic/alpine319"
+  config.vm.provider PROVIDER do |vb|
+    vb.memory = 1024
+    vb.cpus = 1
+  end
 
-#         su -l vagrant -s "/bin/sh" -c "curl -fsSO https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh; chmod 755 install.sh; ./install.sh --unattended"
-#         sed -i 's/ZSH_THEME=".*"/ZSH_THEME="superjarin"/g' /home/vagrant/.zshrc
-#         chsh -s /bin/zsh vagrant
-#         echo "cd /vagrant" >> /home/vagrant/.zshrc
-#     SHELL
-# end
-
-Vagrant.configure(2) do |config|
-    config.vm.box = "debian/bullseye64"
-
-    config.vm.provider "virtualbox" do |vb|
-        vb.memory = 1024
-        vb.cpus = 1
+  config.vm.define SERVER_NAME, primary: true do |control|
+    control.vm.network "private_network", ip: SERVER_IP
+    control.vm.synced_folder "./shared", "/shared"
+    control.vm.hostname = SERVER_NAME
+    control.vm.provider PROVIDER do |v|
+      v.customize ["modifyvm", :id, "--name", SERVER_NAME]
     end
+    control.vm.provision "shell", path: "scripts/server.sh", env: { "SERVER_IP" => SERVER_IP }
+  end
 
-    config.vm.provision "shell", path: "scripts/shared.sh"
-
-    config.vm.define "axbrisseS" do |control|
-        control.vm.hostname = "axbrisseS"
-        control.vm.network "private_network", ip: "192.168.56.110"
-
-        control.vm.provider "virtualbox" do |v|
-            v.customize ["modifyvm", :id, "--name", "axbrisseS"]
-        end
-
-        control.vm.provision "shell", path: "scripts/server.sh"
+  config.vm.define AGENT_NAME do |control|
+    control.vm.network "private_network", ip: AGENT_IP
+    control.vm.synced_folder "./shared", "/shared"
+    control.vm.hostname = AGENT_NAME
+    control.vm.provider PROVIDER do |v|
+      v.customize ["modifyvm", :id, "--name", AGENT_NAME]
     end
-
-    config.vm.define "axbrisseSW" do |control|
-        control.vm.hostname = "axbrisseSW"
-        control.vm.network "private_network", ip: "192.168.56.111"
-
-        control.vm.provider "virtualbox" do |v|
-            v.customize ["modifyvm", :id, "--name", "axbrisseSW"]
-        end
-
-        control.vm.provision "shell", path: "scripts/server_worker.sh"
-    end
+    control.vm.provision "shell", path: "scripts/agent.sh", env: { "SERVER_IP" => SERVER_IP }
+  end
 end
